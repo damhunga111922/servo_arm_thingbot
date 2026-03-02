@@ -1,0 +1,95 @@
+#include <Wire.h>
+#include <Adafruit_PWMServoDriver.h>
+
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
+
+#define SERVOMIN  150
+#define SERVOMAX  600
+#define SERVO_FREQ 50
+
+#define GRIPPER_SERVO 10
+#define GRIP_OPEN_ANGLE 20
+#define GRIP_CLOSE_ANGLE 110
+
+int selectedServo = -1;
+bool waitingForValue = false;
+
+void moveServo(int channel, int angle) {
+  angle = constrain(angle, 0, 180);
+  int pulse = map(angle, 0, 180, SERVOMIN, SERVOMAX);
+  pwm.setPWM(channel, 0, pulse);
+
+  Serial.print("Servo ");
+  Serial.print(channel);
+  Serial.print(" dang o goc: ");
+  Serial.println(angle);
+}
+
+void handleSerial() {
+
+  if (Serial.available()) {
+
+    String input = Serial.readStringUntil('\n');
+    input.trim();
+    if (input.length() == 0) return;
+
+    int value = input.toInt();
+
+    // ===== Chưa chọn servo =====
+    if (!waitingForValue) {
+
+      if (value >= 10 && value <= 12) {
+
+        selectedServo = value;
+        waitingForValue = true;
+
+        if (selectedServo == GRIPPER_SERVO) {
+          Serial.println("Nhap 0 (mo) hoac 1 (dong):");
+        } else {
+          Serial.println("Nhap goc (0-150):");
+        }
+
+      } else {
+        Serial.println("Servo khong hop le (10-12)");
+      }
+    }
+
+    // ===== Đã chọn servo =====
+    else {
+
+      if (selectedServo == GRIPPER_SERVO) {
+
+        if (value == 0) {
+          moveServo(GRIPPER_SERVO, GRIP_OPEN_ANGLE);
+        }
+        else if (value == 1) {
+          moveServo(GRIPPER_SERVO, GRIP_CLOSE_ANGLE);
+        }
+        else {
+          Serial.println("Chi nhap 0 hoac 1");
+        }
+      }
+      else {
+        moveServo(selectedServo, value);
+      }
+
+      waitingForValue = false;
+      Serial.println("Nhap servo (10-12):");
+    }
+  }
+}
+
+void setup() {
+
+  Serial.begin(9600);
+
+  pwm.begin();
+  pwm.setOscillatorFrequency(27000000);
+  pwm.setPWMFreq(SERVO_FREQ);
+
+  Serial.println("Nhap servo (10-12):");
+}
+
+void loop() {
+  handleSerial();
+}
